@@ -1,0 +1,9 @@
+backend/.venv/
+backend/.env
+models/
+graphs/
+__pycache__/
+*.pkl
+*.graphml
+*.so
+Notebook.ipynb
