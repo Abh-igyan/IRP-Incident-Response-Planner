@@ -10,7 +10,7 @@ from app.routes.feedback import init_feedback_db, router as feedback_router
 from app.routes.predict import router as predict_router
 from app.services.predictor import IncidentPredictor
 from app.services.analytics_service import AnalyticsService
-from app.services.utils import APP_DIR
+from app.services.utils import APP_DIR, ROOT_DIR
 
 
 @asynccontextmanager
@@ -50,9 +50,17 @@ if analytics_static_dir.exists():
 
 @app.get("/")
 def index() -> FileResponse:
+    frontend_index = ROOT_DIR / "frontend" / "dist" / "index.html"
+    if frontend_index.exists():
+        return FileResponse(frontend_index)
     return FileResponse(static_dir / "index.html")
 
 
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+frontend_dist_dir = ROOT_DIR / "frontend" / "dist"
+if frontend_dist_dir.exists():
+    app.mount("/", StaticFiles(directory=frontend_dist_dir, html=True), name="frontend_app")

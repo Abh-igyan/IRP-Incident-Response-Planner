@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Box, CircularProgress, Paper, Typography } from '@mui/material';
 
-const STATIC_ANALYTICS_URL = 'http://127.0.0.1:8000/analytics/index.html';
+const STATIC_ANALYTICS_URL = '/analytics/index.html';
 
 const AnalyticsPage = () => {
   useEffect(() => {

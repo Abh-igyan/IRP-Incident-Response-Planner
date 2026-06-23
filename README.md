@@ -252,6 +252,40 @@ The original model remains the stable baseline. Feedback acts as an online calib
 - `GET /options`: returns dropdown values discovered from the historical incident dataset.
 - `GET /health`: basic service health check.
 
+## Docker Deployment
+
+The repository now includes a single deployment image that builds the React frontend, installs the FastAPI backend from `backend/requirements.txt`, and serves both the app and the static analytics dashboard from one container. The image no longer depends on the host `.venv`, which avoids the broken path issue from copied virtualenv launchers.
+
+### Build the image
+
+```bash
+docker rm -f incident-response-planner 2>/dev/null || true
+docker build --no-cache -t incident-response-planner .
+```
+
+### Run the container
+
+```bash
+docker run --rm -p 8000:8000 incident-response-planner
+```
+
+### Open the app
+
+- Main app: `http://localhost:8000/`
+- Predict page: `http://localhost:8000/#/predict`
+- Analytics dashboard: `http://localhost:8000/analytics/index.html`
+- Heatmap page: `http://localhost:8000/#/heatmap`
+
+### What the container serves
+
+- The FastAPI API on port `8000`
+- The React frontend build from `frontend/dist`
+- The static analytics dashboard from `analytics/`
+- The static backend operations console and analytics API
+- Backend Python packages installed inside the image from `backend/requirements.txt`
+
+If you want local development instead of Docker, run the backend and frontend separately as before.
+
 ## Expected Prediction Response
 
 ```json
