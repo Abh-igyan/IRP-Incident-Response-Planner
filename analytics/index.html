@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Traffic Incident Analytics Dashboard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f101a;
+        --panel: #1a1d2e;
+        --panel-border: rgba(38, 124, 217, 0.26);
+        --text: #e0e0e0;
+        --muted: #a0a0a0;
+        --accent: #267cd9;
+        --accent-2: #4cc9f0;
+        --line: rgba(255, 255, 255, 0.08);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .shell { max-width: 1440px; margin: 0 auto; padding: 24px; display: grid; gap: 20px; }
+      .topbar {
+        display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;
+      }
+      h1, h2, p { margin: 0; }
+      .title { font-size: clamp(1.8rem, 4vw, 2.8rem); }
+      .subtitle { color: var(--muted); max-width: 880px; line-height: 1.5; margin-top: 8px; }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      .btn {
+        border: 1px solid var(--panel-border); background: transparent; color: var(--text);
+        padding: 10px 14px; border-radius: 8px; cursor: pointer; font: inherit;
+      }
+      .btn.primary { background: var(--accent); border-color: var(--accent); }
+      .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+      .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .panel {
+        background: var(--panel); border: 1px solid var(--panel-border); border-radius: 10px;
+        padding: 16px; box-shadow: 0 14px 30px rgba(0,0,0,0.16);
+      }
+      .panel h3 { margin: 0 0 12px; font-size: 1rem; color: #e9eef5; }
+      .kicker { color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0; margin-bottom: 8px; }
+      .metric { display: grid; gap: 6px; }
+      .metric strong { font-size: 2rem; line-height: 1; }
+      .metric span { color: var(--muted); font-size: 0.9rem; }
+      .chart { display: grid; gap: 12px; }
+      .bar-row { display: grid; gap: 6px; }
+      .bar-head { display: flex; justify-content: space-between; gap: 10px; }
+      .bar-track {
+        width: 100%; height: 11px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden;
+      }
+      .bar-fill { height: 100%; border-radius: inherit; background: var(--accent); }
+      .bars { display: grid; gap: 12px; }
+      .chips { display: flex; gap: 10px; flex-wrap: wrap; }
+      .chip {
+        display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border-radius: 999px;
+        background: rgba(255,255,255,0.08); color: var(--text); font-size: 0.9rem;
+      }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 10px 8px; font-size: 0.95rem; }
+      th { color: var(--muted); font-weight: 600; }
+      .status { color: var(--muted); font-size: 0.95rem; }
+      .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+      .swatch { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; color: var(--muted); }
+      .dot { width: 10px; height: 10px; border-radius: 50%; }
+      .empty { color: var(--muted); }
+      .gallery { display: grid; gap: 14px; }
+      .frame {
+        width: 100%; min-height: 420px; border: 0; border-radius: 8px; background: #ffffff;
+      }
+      .frame.tall { min-height: 800px; }
+      .frame.image { object-fit: contain; background: #ffffff; padding: 8px; }
+      @media (max-width: 1100px) {
+        .grid-4, .grid-2 { grid-template-columns: 1fr 1fr; }
+      }
+      @media (max-width: 700px) {
+        .grid-4, .grid-2 { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <p class="kicker">Incident Response Planner</p>
+          <h1 class="title">Traffic Incident Analytics Dashboard</h1>
+          <p class="subtitle">
+            Live analytics from the backend incident dataset. This page is self-contained and renders
+            summary cards, corridor bars, cause/vehicle breakdowns, and the geographic heatmap sample.
+          </p>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="refreshBtn">Refresh Data</button>
+          <button class="btn" id="exportJsonBtn">Export JSON</button>
+          <button class="btn" id="exportCsvBtn">Export CSV</button>
+        </div>
+      </section>
+
+      <section class="grid-4" id="summaryGrid"></section>
+
+      <section class="grid-2">
+        <article class="panel">
+          <p class="kicker">Top Risky Corridors</p>
+          <div class="bars" id="corridorBars"></div>
+        </article>
+        <article class="panel">
+          <p class="kicker">Top Risky Cause-Vehicle Pairs</p>
+          <div class="bars" id="riskBars"></div>
+        </article>
+      </section>
+
+      <section class="grid-2">
+        <article class="panel">
+          <p class="kicker">Event Cause Mix</p>
+          <div class="swatches" id="causeSwatches"></div>
+        </article>
+        <article class="panel">
+          <p class="kicker">Vehicle Mix</p>
+          <div class="bars" id="vehicleBars"></div>
+        </article>
+      </section>
+
+      <section class="panel chart">
+        <p class="kicker">Hourly Incident Distribution</p>
+        <div class="bars" id="hourlyChart"></div>
+      </section>
+
+      <section class="panel chart">
+        <p class="kicker">Heatmap Sample</p>
+        <p class="status" id="heatmapStatus">Loading heatmap points...</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Intensity</th>
+            </tr>
+          </thead>
+          <tbody id="heatmapTable"></tbody>
+        </table>
+      </section>
+
+      <section class="gallery">
+        <article class="panel">
+          <h3>Geographic Incident Heatmap</h3>
+          <iframe class="frame" src="incident_heatmap.html" title="Geographic Incident Heatmap"></iframe>
+        </article>
+        <article class="panel">
+          <h3>Analytics Plot Gallery</h3>
+          <iframe class="frame tall" src="plotly_visualizations.html" title="Analytics Plot Gallery"></iframe>
+        </article>
+        <article class="panel">
+          <h3>Correlation Heatmap</h3>
+          <img class="frame image" src="correlation_heatmap.png" alt="Correlation Heatmap">
+        </article>
+      </section>
+
+      <section class="chips" id="footerChips"></section>
+      <p class="status" id="status"></p>
+    </main>
+
+    <script>
+      const colors = ['#267cd9', '#4cc9f0', '#7c4dff', '#ff8c42', '#ffd166', '#ef476f', '#06d6a0', '#118ab2'];
+      let analyticsData = null;
+
+      const el = (id) => document.getElementById(id);
+
+      const download = (filename, payload, mimeType = 'application/json') => {
+        const blob = new Blob([payload], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      const barMarkup = (label, value, max, suffix = '') => {
+        const width = Math.max(6, Math.round((value / Math.max(max, 1)) * 100));
+        return `
+          <div class="bar-row">
+            <div class="bar-head">
+              <span>${label}</span>
+              <span>${suffix ? suffix(value) : value}</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:${width}%;"></div></div>
+          </div>
+        `;
+      };
+
+      const renderSummary = (summary) => {
+        const cards = [
+          ['Incidents', summary.total_incidents],
+          ['Closures', summary.total_closures],
+          ['Closure Rate', `${Math.round(summary.closure_rate * 100)}%`],
+          ['Highest Risk Corridor', summary.highest_risk_corridor || '-'],
+        ];
+        el('summaryGrid').innerHTML = cards.map(([label, value]) => `
+          <article class="panel metric">
+            <span class="kicker">${label}</span>
+            <strong>${value}</strong>
+          </article>
+        `).join('');
+      };
+
+      const renderCorridors = (corridors) => {
+        const entries = Object.entries(corridors || {}).slice(0, 8).map(([name, value]) => ({ name, value: Number(value) || 0 }));
+        const max = Math.max(...entries.map((item) => item.value), 1);
+        el('corridorBars').innerHTML = entries.map((item) => barMarkup(item.name, item.value, max, (v) => `${Math.round(v * 100)}%`)).join('') || '<p class="empty">No corridor data.</p>';
+      };
+
+      const renderRiskPairs = (pairs) => {
+        const entries = (pairs || []).slice(0, 6).map((item) => ({
+          name: `${item.event_cause} / ${item.veh_type}`,
+          value: Number(item.closure_rate) || 0,
+        }));
+        const max = Math.max(...entries.map((item) => item.value), 1);
+        el('riskBars').innerHTML = entries.map((item) => barMarkup(item.name, item.value, max, (v) => `${Math.round(v * 100)}%`)).join('') || '<p class="empty">No pair data.</p>';
+      };
+
+      const renderCauses = (causes) => {
+        const entries = Object.entries(causes || {}).slice(0, 8).map(([name, value], index) => ({
+          name,
+          value: Number(value) || 0,
+          color: colors[index % colors.length],
+        }));
+        const total = entries.reduce((sum, item) => sum + item.value, 0) || 1;
+        el('causeSwatches').innerHTML = entries.map((item) => `
+          <div class="swatch">
+            <span class="dot" style="background:${item.color}"></span>
+            <span>${item.name}</span>
+            <strong style="color:#e0e0e0">${Math.round((item.value / total) * 100)}%</strong>
+          </div>
+        `).join('') || '<p class="empty">No cause data.</p>';
+      };
+
+      const renderVehicles = (vehicles) => {
+        const entries = Object.entries(vehicles || {}).slice(0, 8).map(([name, value]) => ({ name, value: Number(value) || 0 }));
+        const max = Math.max(...entries.map((item) => item.value), 1);
+        el('vehicleBars').innerHTML = entries.map((item) => barMarkup(item.name, item.value, max, (v) => String(v))).join('') || '<p class="empty">No vehicle data.</p>';
+      };
+
+      const renderHourly = (hourly) => {
+        const entries = Object.entries(hourly || {}).slice(0, 24).map(([hour, value]) => ({ name: `${hour}:00`, value: Number(value) || 0 }));
+        const max = Math.max(...entries.map((item) => item.value), 1);
+        el('hourlyChart').innerHTML = entries.map((item) => barMarkup(item.name, item.value, max, (v) => String(v))).join('') || '<p class="empty">No hourly data.</p>';
+      };
+
+      const renderHeatmap = (heatmap) => {
+        const rows = (heatmap || []).slice(0, 12);
+        el('heatmapStatus').textContent = rows.length ? 'Sample of backend heatmap points.' : 'No heatmap data available.';
+        el('heatmapTable').innerHTML = rows.map(([lat, lon, intensity]) => `
+          <tr>
+            <td>${Number(lat).toFixed(5)}</td>
+            <td>${Number(lon).toFixed(5)}</td>
+            <td>${Number(intensity).toFixed(2)}</td>
+          </tr>
+        `).join('');
+      };
+
+      const renderFooter = (summary, hourly, closureRisk) => {
+        const chips = [
+          `Highest-risk cause: ${summary.highest_risk_event_cause || '-'}`,
+          `Peak-hour incidents: ${hourly?.[8] || 0} at 8 AM, ${hourly?.[17] || 0} at 5 PM`,
+          `Top pair: ${(closureRisk.top_risky_pairs || [])[0] ? `${closureRisk.top_risky_pairs[0].event_cause} / ${closureRisk.top_risky_pairs[0].veh_type}` : '-'}`,
+        ];
+        el('footerChips').innerHTML = chips.map((chip) => `<span class="chip">${chip}</span>`).join('');
+      };
+
+      const exportJson = () => download('incident-response-analytics.json', JSON.stringify(analyticsData, null, 2));
+      const exportCsv = () => {
+        const corridorRows = Object.entries(analyticsData?.corridors?.closure_rate_by_corridor || {}).map(([name, value]) => `corridor,"${String(name).replaceAll('"', '""')}",${value}`);
+        const causeRows = Object.entries(analyticsData?.event_causes || {}).map(([name, value]) => `event_cause,"${String(name).replaceAll('"', '""')}",${value}`);
+        download('incident-response-analytics.csv', ['type,name,value', ...corridorRows, ...causeRows].join('\n'), 'text/csv');
+      };
+
+      async function loadAnalytics() {
+        el('status').textContent = 'Loading analytics from backend...';
+        try {
+          const response = await fetch('/analytics', { headers: { Accept: 'application/json' } });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          analyticsData = await response.json();
+          renderSummary(analyticsData.summary || {});
+          renderCorridors(analyticsData.corridors?.closure_rate_by_corridor || {});
+          renderRiskPairs(analyticsData.closure_risk?.top_risky_pairs || []);
+          renderCauses(analyticsData.event_causes || {});
+          renderVehicles(analyticsData.vehicle_types || {});
+          renderHourly(analyticsData.hourly || {});
+          renderHeatmap(analyticsData.heatmap || []);
+          renderFooter(analyticsData.summary || {}, analyticsData.hourly || {}, analyticsData.closure_risk || {});
+          el('status').textContent = 'Analytics loaded successfully.';
+        } catch (error) {
+          console.error(error);
+          el('status').textContent = 'Unable to load analytics from backend.';
+        }
+      }
+
+      el('refreshBtn').addEventListener('click', loadAnalytics);
+      el('exportJsonBtn').addEventListener('click', () => analyticsData && exportJson());
+      el('exportCsvBtn').addEventListener('click', () => analyticsData && exportCsv());
+      loadAnalytics();
+    </script>
+  </body>
+</html>

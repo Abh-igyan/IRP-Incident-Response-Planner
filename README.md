@@ -34,6 +34,10 @@ How can historical and real-time data be used to forecast event-related traffic 
 - Produces response priority, ETA target, traffic forecast, and diversion strategy.
 - Generates corridor-aware diversion route outputs using precomputed graph assets.
 - Captures post-event feedback and immediately updates learned calibration profiles.
+- Exposes downloadable analytics exports from the React dashboard.
+- Renders the heatmap as an actual Leaflet intensity map instead of only a point table.
+- Surfaces prediction confidence explicitly in the prediction dashboard.
+- Uses two equal-height incident and diversion maps in the prediction workflow for a clearer operator view.
 
 ## System Architecture
 
@@ -118,6 +122,8 @@ flowchart TD
 7. The backend computes impact score, impact class, resource plan, response priority, ETA target, and traffic forecast.
 8. If the incident has enough closure risk, `DiversionService` picks the nearest graph by location and finds a route without depending on the corridor label.
 9. The frontend renders the prediction dashboard, confidence notes, routing mode, and diversion route polyline.
+
+The React predict page now also shows the confidence score directly and keeps the incident picker and diversion map in equal-height panels.
 
 ## Prediction Confidence and Stabilization
 
@@ -217,6 +223,26 @@ The original model remains the stable baseline. Feedback acts as an online calib
 - The trained model and metadata fallback remain intact.
 - The `/feedback/summary` endpoint makes learned profiles inspectable.
 - The architecture supports future offline retraining by exporting the SQLite feedback records.
+
+## Frontend Operational Views
+
+### Predict
+
+- The incident form stays on the left.
+- The incident picker map and diversion route map are rendered as two equal-height panels on the right.
+- The result band now shows impact score, impact class, closure probability, and confidence score.
+- The post-event feedback form is always visible on the predict page so operators can submit outcomes right after a run.
+
+### Analytics
+
+- The dashboard includes export actions for JSON and CSV snapshots.
+- It also renders corridor, cause, vehicle, and hourly visuals so the page is not only a static statistics view.
+- The React analytics route now redirects to the static analytics dashboard so there is one source of truth for plots and heatmaps.
+
+### Heatmap
+
+- The heatmap page now uses Leaflet circles to visualize intensity directly on a map.
+- A point table remains below the map for operator reference.
 
 ## API Endpoints
 

@@ -1,0 +1,14 @@
+{
+    "city": "Bangalore",
+    "model_type": "CatBoost",
+    "target_variable": "closure",
+    "total_incidents": 8057,
+    "closure_rate": 0.07397294278267345,
+    "corridor_count": 22,
+    "event_cause_count": 16,
+    "vehicle_type_count": 11,
+    "impact_thresholds": {
+        "low": 42.68,
+        "high": 54.81
+    }
+}
