@@ -7,60 +7,55 @@ from typing import Any
 import networkx as nx
 import requests
 
-from app.services.utils import get_corridor_graphs, haversine_km
+from app.services.graph_registry import GraphMetadata, GraphRegistry
+from app.services.utils import haversine_km
 
 
 class DiversionService:
     def __init__(self) -> None:
         self.graph: Any | None = None
+        self.graph_metadata: GraphMetadata | None = None
+        self.registry = GraphRegistry()
         self.status = "graph_not_loaded"
 
-    def load(self, corridor: str, latitude: float, longitude: float) -> None:
-        graph_files = get_corridor_graphs(corridor)
-
-        if not graph_files:
-            self.graph = None
-            self.status = f"no_graphs_for_corridor:{corridor}"
+    def load(self, graph_metadata: GraphMetadata) -> None:
+        if self.graph_metadata and self.graph_metadata.graph_path == graph_metadata.graph_path:
             return
-
-        best_graph = None
-        best_distance = float("inf")
-
-        for graph_path in graph_files:
-            try:
-                with open(graph_path, "rb") as f:
-                    graph = pickle.load(f)
-
-                nearest = self._nearest_node_in_graph(graph, latitude, longitude)
-                if nearest is None:
-                    continue
-
-                node_data = graph.nodes[nearest]
-                dist = haversine_km(
-                    latitude,
-                    longitude,
-                    float(node_data["y"]),
-                    float(node_data["x"]),
-                )
-
-                if dist < best_distance:
-                    best_distance = dist
-                    best_graph = graph
-
-            except Exception:
-                continue
-
-        if best_graph is None:
+        try:
+            with open(graph_metadata.graph_path, "rb") as f:
+                self.graph = pickle.load(f)
+            self.graph_metadata = graph_metadata
+            self.status = f"nearest_graph:{graph_metadata.graph_name}"
+        except Exception:
             self.graph = None
+            self.graph_metadata = None
             self.status = "graph_load_failed"
-            return
-
-        self.graph = best_graph
-        self.status = "graph_loaded"
 
     def get_best_diversion_route(self, row: dict) -> dict:
-        self.load(row["corridor"], row["latitude"], row["longitude"])
+        graph_candidates = self.registry.get_nearest_graphs(
+            row["latitude"],
+            row["longitude"],
+            limit=3,
+        )
 
+        for graph_metadata in graph_candidates:
+            self.load(graph_metadata)
+            if self.graph is None:
+                continue
+            route = self._route_from_loaded_graph(row)
+            if route["route_coords"]:
+                route["routing_status"] = self.status
+                route["routing_graph"] = {
+                    "graph_name": graph_metadata.graph_name,
+                    "corridor_name": graph_metadata.corridor_name,
+                    "distance_km": graph_metadata.distance_km,
+                    "selection": "nearest_graph",
+                }
+                return route
+
+        return self._empty_plan("No graph route found, monitoring traffic")
+
+    def _route_from_loaded_graph(self, row: dict) -> dict:
         if self.graph is None:
             return self._empty_plan("Routing graph unavailable")
 
@@ -251,4 +246,6 @@ class DiversionService:
             "route_coords": [],
             "geometry": None,
             "routing_status": reason,
+            "routing_graph": None,
+            "diversion_strategy": "Traffic Monitoring Only",
         }

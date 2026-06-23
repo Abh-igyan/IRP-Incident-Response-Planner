@@ -59,19 +59,3 @@ def resource_plan(row: dict) -> dict:
         "ambulance_required": row["event_cause"] == "accident",
         "crane_required": row["event_cause"] in ["vehicle_breakdown", "tree_fall"],
     }
-
-
-def traffic_forecast(row: dict) -> dict:
-    delay = (
-        row["closure_probability"] * 25
-        + row["impact_score"] * 0.18
-        + row["is_peak_hour"] * 8
-        + row.get("has_end_coords", 0) * 5
-    )
-    if delay >= 25:
-        severity = "Severe"
-    elif delay >= 12:
-        severity = "Moderate"
-    else:
-        severity = "Minor"
-    return {"severity": severity, "expected_delay_mins": round(delay, 1)}

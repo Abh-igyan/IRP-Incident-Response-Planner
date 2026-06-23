@@ -6,15 +6,18 @@ from typing import Any
 import pandas as pd
 
 from app.schemas import IncidentRequest
+from app.services.confidence import FeatureConfidenceScorer
 from app.services.diversion import DiversionService
 from app.services.feedback_learning import FeedbackLearningService
+from app.services.probability_calibrator import ProbabilityCalibrator
+from app.services.probability_stabilizer import ProbabilityStabilizer
 from app.services.recommender import (
     diversion_strategy,
     eta_target,
     resource_plan,
     response_priority,
-    traffic_forecast,
 )
+from app.services.sanity_rules import SanityRuleEngine
 from app.services.utils import (
     METADATA_PATH,
     MODEL_PATH,
@@ -31,8 +34,12 @@ class IncidentPredictor:
         self.model: Any | None = None
         self.model_status = "not_loaded"
         self.location_resolver: LocationResolver | None = None
+        self.confidence_scorer: FeatureConfidenceScorer | None = None
         self.diversion_service = DiversionService()
         self.learning_service = FeedbackLearningService()
+        self.probability_calibrator = ProbabilityCalibrator()
+        self.probability_stabilizer = ProbabilityStabilizer()
+        self.sanity_rules = SanityRuleEngine()
         self._core_loaded = False
 
     def load(self) -> None:
@@ -56,32 +63,44 @@ class IncidentPredictor:
     def _ensure_location_resolver(self) -> None:
         if self.location_resolver is None:
             self.location_resolver = LocationResolver()
+
+    def _ensure_confidence_scorer(self) -> None:
+        if self.confidence_scorer is None:
+            self.confidence_scorer = FeatureConfidenceScorer()
     
     def predict(self, incident: IncidentRequest) -> dict:
         self.load()
         self._ensure_location_resolver()
+        self._ensure_confidence_scorer()
 
         row = self.build_feature_row(incident)
-        base_probability = self._closure_probability(row)
-        row["closure_probability"], learning_insight = self.learning_service.adjust_closure_probability(
-            row,
-            base_probability,
-        )
+        assert self.confidence_scorer is not None
+        prediction_confidence, prediction_notes = self.confidence_scorer.score(row)
+
+        probability_result = self.final_probability(row, prediction_confidence)
+        final_probability = probability_result["final_probability"]
+        learning_insight = probability_result["learning_insight"]
+        row["closure_probability"] = final_probability
         row["closure_risk"] = self._closure_risk(row["closure_probability"])
         row["impact_score"] = self._impact_score(row)
         row["impact_class"] = self._impact_class(row["impact_score"])
+        prediction_notes.extend(probability_result["notes"])
+        if learning_insight.get("calibration_adjustment", 0) != 0:
+            prediction_notes.append("Feedback calibration adjusted closure probability")
 
         priority = response_priority(row)
         strategy = diversion_strategy(row)
 
-        if row["closure_probability"] >= 0.18 and row["corridor"] != "non-corridor":
+        if row["closure_probability"] >= 0.18:
             diversion_plan = self.diversion_service.get_best_diversion_route(row)
         else:
             diversion_plan = self.diversion_service._empty_plan(
-                "Closure probability below threshold or no corridor found."
+                "Closure probability below routing threshold."
             )
+        if diversion_plan.get("diversion_strategy"):
+            strategy = diversion_plan["diversion_strategy"]
 
-        forecast = self.learning_service.adjust_traffic_forecast(row, traffic_forecast(row))
+        forecast = self.learning_service.adjust_traffic_forecast(row, self._initial_traffic_forecast(row))
 
         return {
             "impact_score": round(row["impact_score"], 2),
@@ -105,6 +124,60 @@ class IncidentPredictor:
             },
             "model_status": self.model_status,
             "learning_insight": learning_insight,
+            "prediction_confidence": prediction_confidence,
+            "prediction_notes": list(dict.fromkeys(prediction_notes)),
+        }
+
+    def raw_model_prediction(self, row: dict[str, Any]) -> float:
+        return self._closure_probability(row)
+
+    def calibrate_probability(
+        self,
+        row: dict[str, Any],
+        raw_probability: float,
+        prediction_confidence: dict[str, Any],
+    ) -> tuple[float, list[str]]:
+        return self.probability_calibrator.calibrate(
+            raw_probability=raw_probability,
+            confidence_score=float(prediction_confidence["score"]),
+            global_mean_probability=float(self.metadata.get("global_closure_mean", 0.0739)),
+            neutral_probability=self._neutral_probability(row),
+        )
+
+    def rule_engine_adjustment(
+        self,
+        row: dict[str, Any],
+        calibrated_probability: float,
+    ) -> tuple[float, list[str]]:
+        return self.sanity_rules.apply(
+            row=row,
+            probability=calibrated_probability,
+            global_mean_probability=float(self.metadata.get("global_closure_mean", 0.0739)),
+        )
+
+    def feedback_learning_adjustment(
+        self,
+        row: dict[str, Any],
+        rule_adjusted_probability: float,
+    ) -> tuple[float, dict[str, Any]]:
+        return self.learning_service.adjust_closure_probability(row, rule_adjusted_probability)
+
+    def final_probability(self, row: dict[str, Any], prediction_confidence: dict[str, Any]) -> dict[str, Any]:
+        raw_probability = self.raw_model_prediction(row)
+        calibrated_probability, calibration_notes = self.calibrate_probability(
+            row,
+            raw_probability,
+            prediction_confidence,
+        )
+        rule_probability, rule_notes = self.rule_engine_adjustment(row, calibrated_probability)
+        learned_probability, learning_insight = self.feedback_learning_adjustment(row, rule_probability)
+        return {
+            "raw_model_probability": raw_probability,
+            "calibrated_probability": calibrated_probability,
+            "rule_adjusted_probability": rule_probability,
+            "final_probability": max(0.01, min(0.98, learned_probability)),
+            "learning_insight": learning_insight,
+            "notes": calibration_notes + rule_notes,
         }
 
     def options(self) -> dict[str, list[str]]:
@@ -160,6 +233,16 @@ class IncidentPredictor:
         )
         return max(0.01, min(0.98, score))
 
+    def _neutral_probability(self, row: dict[str, Any]) -> float:
+        neutral_row = dict(row)
+        neutral_row["veh_type"] = "unknown"
+        neutral_row["authenticated"] = 1
+        neutral_row["priority"] = "High"
+        try:
+            return self._closure_probability(neutral_row)
+        except Exception:
+            return float(self.metadata.get("global_closure_mean", 0.0739))
+
     def _impact_score(self, row: dict[str, Any]) -> float:
         event_type_risk = self.metadata.get("event_type_risk", {}).get(row["event_type"], 0.5)
         event_cause_risk = self.metadata.get("event_cause_risk", {}).get(row["event_cause"], 0.5)
@@ -185,6 +268,22 @@ class IncidentPredictor:
             + endpoint_risk * 3
         )
         return max(0.0, min(100.0, score))
+
+    @staticmethod
+    def _initial_traffic_forecast(row: dict) -> dict:
+        delay = (
+            row["closure_probability"] * 25
+            + row["impact_score"] * 0.18
+            + row["is_peak_hour"] * 8
+            + row.get("has_end_coords", 0) * 5
+        )
+        if delay >= 25:
+            severity = "Severe"
+        elif delay >= 12:
+            severity = "Moderate"
+        else:
+            severity = "Minor"
+        return {"severity": severity, "expected_delay_mins": round(delay, 1)}
 
     def _impact_class(self, score: float) -> str:
         low = float(self.metadata.get("low_thr", 42.68))

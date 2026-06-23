@@ -28,6 +28,8 @@ How can historical and real-time data be used to forecast event-related traffic 
 - Derives corridor, zone, police station, hour, day of week, month, weekend, and peak-hour features automatically.
 - Loads the trained closure model and pipeline metadata once, then reuses them for predictions.
 - Predicts road closure probability, traffic impact score, and impact class.
+- Reports prediction confidence from historical feature support.
+- Stabilizes sparse CatBoost outputs with confidence-aware smoothing and sanity rules.
 - Recommends officers, barricades, patrol vehicles, ambulance need, and crane need.
 - Produces response priority, ETA target, traffic forecast, and diversion strategy.
 - Generates corridor-aware diversion route outputs using precomputed graph assets.
@@ -111,9 +113,55 @@ flowchart TD
    - `is_peak_hour`
 3. `IncidentPredictor` runs the trained CatBoost model when available. If the model cannot be loaded, it falls back to metadata risk maps.
 4. `FeedbackLearningService` applies learned calibration from real field outcomes.
-5. The backend computes impact score, impact class, resource plan, response priority, ETA target, and traffic forecast.
-6. If the incident has enough closure risk and belongs to a known corridor, `DiversionService` finds a route from the corridor graph.
-7. The frontend renders the prediction dashboard and diversion route polyline.
+5. The backend smooths low-confidence probability estimates toward the global historical closure mean.
+6. Sanity rules make small corrections for operationally obvious cases such as accident plus heavy vehicle.
+7. The backend computes impact score, impact class, resource plan, response priority, ETA target, and traffic forecast.
+8. If the incident has enough closure risk, `DiversionService` picks the nearest graph by location and finds a route without depending on the corridor label.
+9. The frontend renders the prediction dashboard, confidence notes, routing mode, and diversion route polyline.
+
+## Prediction Confidence and Stabilization
+
+Sparse categories can make ML outputs noisy. The project now computes prediction reliability from training frequency for:
+
+- `event_type`
+- `event_cause`
+- `veh_type`
+- `police_station`
+- `corridor`
+
+The `/predict` response includes:
+
+```json
+{
+  "prediction_confidence": {
+    "score": 0.78,
+    "label": "High"
+  },
+  "prediction_notes": [
+    "Rare veh_type: example",
+    "Using smoothed probability estimate"
+  ]
+}
+```
+
+Low-confidence predictions are smoothed toward the historical global closure mean. A stabilization layer limits large probability jumps from sparse or dominant fields such as `veh_type`, `authenticated`, and `priority`. A small sanity-rule layer then applies conservative operational corrections.
+
+## Dynamic Graph Routing
+
+Routing no longer depends on `incident -> corridor -> graph`. The route planner now uses:
+
+```text
+incident location -> nearest graph registry -> route search
+```
+
+`backend/app/services/graph_registry.py` builds graph metadata from graph pickle files and selects the nearest graph centers within a threshold radius. `DiversionService` tries the nearest three graph candidates before returning fallback monitoring mode:
+
+```json
+{
+  "routing_status": "No graph route found, monitoring traffic",
+  "diversion_strategy": "Traffic Monitoring Only"
+}
+```
 
 ## Closed-Loop Feedback Learning System
 

@@ -12,6 +12,51 @@
   </head>
   <body>
     <main class="app-shell">
+      <section class="landing-page">
+        <div class="landing-hero">
+          <p class="eyebrow">Incident Response Planner</p>
+          <h1>Traffic impact intelligence for planned and unplanned congestion.</h1>
+          <p>
+            Forecast closure risk, estimate operational impact, plan resources, and route diversions
+            with a hybrid ML, rules, graph-routing, and feedback-learning pipeline.
+          </p>
+          <a href="#operations" class="hero-action">Open Operations Console</a>
+        </div>
+
+        <div class="architecture-board" aria-label="System architecture diagram">
+          <div class="arch-node">Incident Input</div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-node">Feature Context</div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-node">CatBoost + Calibration</div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-node">Rules + Feedback</div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-node">Response Plan</div>
+          <div class="arch-node wide">Nearest Graph Routing + Optional Mappls Validation</div>
+        </div>
+
+        <div class="landing-grid">
+          <article>
+            <h2>ML Pipeline</h2>
+            <p>CatBoost produces the raw closure score, then confidence scoring, calibration, rule checks, and feedback profiles stabilize the final probability.</p>
+          </article>
+          <article>
+            <h2>Routing Pipeline</h2>
+            <p>Incident coordinates select the nearest graph candidates directly, so diversion planning does not collapse when corridor labels are missing.</p>
+          </article>
+          <article>
+            <h2>Operational Outputs</h2>
+            <p>The dashboard returns impact score, priority, ETA target, officers, barricades, vehicles, emergency flags, and route details.</p>
+          </article>
+          <article>
+            <h2>Feedback Learning</h2>
+            <p>Post-event closure and delay outcomes update learned profiles that tune future estimates while preserving the stable model baseline.</p>
+          </article>
+        </div>
+      </section>
+
+      <div id="operations" class="section-anchor"></div>
       <section class="workspace">
         <aside class="input-panel" aria-label="Incident input">
           <div class="brand-block">

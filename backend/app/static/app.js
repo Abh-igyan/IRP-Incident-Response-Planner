@@ -55,7 +55,9 @@ function renderPrediction(data) {
   lastPrediction = data;
   document.getElementById("closure_probability").textContent = `${Math.round(data.closure_probability * 100)}%`;
   document.getElementById("impact_score").textContent = data.impact_score.toFixed(2);
-  document.getElementById("impact_class").textContent = data.impact_class;
+  document.getElementById("impact_class").textContent = data.prediction_confidence
+    ? `${data.impact_class} / ${data.prediction_confidence.label} confidence`
+    : data.impact_class;
   document.getElementById("response_priority").textContent = data.response_priority;
 
   renderDl("resourcePlan", data.resource_plan);
@@ -67,6 +69,8 @@ function renderPrediction(data) {
       ? `${Number(data.learning_insight.calibration_adjustment || 0).toFixed(3)}`
       : "0.000",
     learning_samples: data.learning_insight ? data.learning_insight.learning_samples : 0,
+    confidence_score: data.prediction_confidence ? data.prediction_confidence.score : "-",
+    prediction_notes: (data.prediction_notes || []).join("; ") || "-",
   });
   renderDl("trafficForecast", data.traffic_forecast);
   const diversionDistance = data.diversion_plan.best_diversion_distance_km;
@@ -79,6 +83,9 @@ function renderPrediction(data) {
     diversion_road_name: data.diversion_plan.diversion_road_name,
     alternate_roads: (data.diversion_plan.alternate_roads || []).join(", ") || "-",
     routing_status: data.diversion_plan.routing_status || "-",
+    routing_mode: data.diversion_plan.routing_graph
+      ? `${titleize(data.diversion_plan.routing_graph.selection)} (${data.diversion_plan.routing_graph.graph_name})`
+      : "Fallback monitoring",
   });
 
   const ctx = data.derived_context;

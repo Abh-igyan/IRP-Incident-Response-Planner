@@ -52,6 +52,8 @@ class PredictionResponse(BaseModel):
     derived_context: DerivedContext
     model_status: str
     learning_insight: dict[str, Any]
+    prediction_confidence: dict[str, Any]
+    prediction_notes: list[str]
 
 
 class FeedbackRequest(BaseModel):
