@@ -115,6 +115,28 @@
             <section class="route-section">
               <div id="routeMap" class="map-surface compact" aria-label="Diversion route map"></div>
             </section>
+
+            <section class="feedback-panel">
+              <div>
+                <h2>Post-Event Feedback</h2>
+                <p id="feedbackStatus">Submit the actual field outcome after the incident is resolved.</p>
+              </div>
+              <form id="feedbackForm" class="feedback-form">
+                <label class="toggle-row">
+                  <span>Road Closure Happened</span>
+                  <input id="actual_road_closure" type="checkbox" />
+                </label>
+                <label>
+                  Actual Delay Minutes
+                  <input id="actual_delay_mins" type="number" min="0" step="1" placeholder="0" />
+                </label>
+                <label>
+                  Field Notes
+                  <input id="feedback_notes" type="text" placeholder="Optional operational note" />
+                </label>
+                <button type="submit" id="feedbackButton">Submit Feedback</button>
+              </form>
+            </section>
           </div>
         </section>
       </section>

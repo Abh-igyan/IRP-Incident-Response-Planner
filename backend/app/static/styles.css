@@ -257,6 +257,35 @@ dd {
   min-width: 0;
 }
 
+.feedback-panel {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 2fr);
+  gap: 18px;
+  align-items: start;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.feedback-panel p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.feedback-form {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(150px, 0.7fr) minmax(180px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.feedback-form button {
+  min-width: 140px;
+}
+
 .leaflet-container {
   font-family: inherit;
 }
@@ -295,7 +324,9 @@ img.leaflet-tile {
   }
 
   .metric-band,
-  .details-grid {
+  .details-grid,
+  .feedback-panel,
+  .feedback-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -308,7 +339,9 @@ img.leaflet-tile {
 
   .latlon-grid,
   .metric-band,
-  .details-grid {
+  .details-grid,
+  .feedback-panel,
+  .feedback-form {
     grid-template-columns: 1fr;
   }
 

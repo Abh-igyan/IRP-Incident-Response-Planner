@@ -63,6 +63,10 @@ function renderPrediction(data) {
     eta_target: data.eta_target,
     diversion_strategy: data.diversion_strategy,
     model_status: data.model_status,
+    learning_adjustment: data.learning_insight
+      ? `${Number(data.learning_insight.calibration_adjustment || 0).toFixed(3)}`
+      : "0.000",
+    learning_samples: data.learning_insight ? data.learning_insight.learning_samples : 0,
   });
   renderDl("trafficForecast", data.traffic_forecast);
   const diversionDistance = data.diversion_plan.best_diversion_distance_km;
@@ -143,6 +147,55 @@ document.getElementById("incidentForm").addEventListener("submit", async (event)
   } finally {
     button.disabled = false;
     button.textContent = "Run Prediction";
+  }
+});
+
+document.getElementById("feedbackForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!lastPrediction) {
+    alert("Run a prediction before submitting field feedback.");
+    return;
+  }
+
+  const button = document.getElementById("feedbackButton");
+  const status = document.getElementById("feedbackStatus");
+  button.disabled = true;
+  button.textContent = "Submitting";
+
+  const delayValue = document.getElementById("actual_delay_mins").value;
+  const payload = {
+    incident: {
+      event_type: document.getElementById("event_type").value,
+      event_cause: document.getElementById("event_cause").value,
+      veh_type: document.getElementById("veh_type").value,
+      priority: document.getElementById("priority").value,
+      authenticated: document.getElementById("authenticated").checked,
+      latitude: Number(document.getElementById("latitude").value),
+      longitude: Number(document.getElementById("longitude").value),
+      incident_datetime: document.getElementById("incident_datetime").value,
+    },
+    prediction: lastPrediction,
+    actual_road_closure: document.getElementById("actual_road_closure").checked,
+    actual_delay_mins: delayValue === "" ? null : Number(delayValue),
+    notes: document.getElementById("feedback_notes").value || null,
+  };
+
+  try {
+    const response = await fetch("/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const result = await response.json();
+    status.textContent = `Feedback ${result.feedback_id} stored. Future predictions now include this outcome.`;
+  } catch (error) {
+    alert(`Feedback failed: ${error.message}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Submit Feedback";
   }
 });
 

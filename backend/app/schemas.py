@@ -51,6 +51,7 @@ class PredictionResponse(BaseModel):
     diversion_plan: dict[str, Any]
     derived_context: DerivedContext
     model_status: str
+    learning_insight: dict[str, Any]
 
 
 class FeedbackRequest(BaseModel):

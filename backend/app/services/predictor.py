@@ -7,6 +7,7 @@ import pandas as pd
 
 from app.schemas import IncidentRequest
 from app.services.diversion import DiversionService
+from app.services.feedback_learning import FeedbackLearningService
 from app.services.recommender import (
     diversion_strategy,
     eta_target,
@@ -31,6 +32,7 @@ class IncidentPredictor:
         self.model_status = "not_loaded"
         self.location_resolver: LocationResolver | None = None
         self.diversion_service = DiversionService()
+        self.learning_service = FeedbackLearningService()
         self._core_loaded = False
 
     def load(self) -> None:
@@ -48,6 +50,7 @@ class IncidentPredictor:
             self.model = None
             self.model_status = f"fallback_metadata_model:{exc.__class__.__name__}"
 
+        self.learning_service.refresh()
         self._core_loaded = True
 
     def _ensure_location_resolver(self) -> None:
@@ -58,8 +61,12 @@ class IncidentPredictor:
         self.load()
         self._ensure_location_resolver()
 
-        row = self._build_feature_row(incident)
-        row["closure_probability"] = self._closure_probability(row)
+        row = self.build_feature_row(incident)
+        base_probability = self._closure_probability(row)
+        row["closure_probability"], learning_insight = self.learning_service.adjust_closure_probability(
+            row,
+            base_probability,
+        )
         row["closure_risk"] = self._closure_risk(row["closure_probability"])
         row["impact_score"] = self._impact_score(row)
         row["impact_class"] = self._impact_class(row["impact_score"])
@@ -74,12 +81,14 @@ class IncidentPredictor:
                 "Closure probability below threshold or no corridor found."
             )
 
+        forecast = self.learning_service.adjust_traffic_forecast(row, traffic_forecast(row))
+
         return {
             "impact_score": round(row["impact_score"], 2),
             "impact_class": row["impact_class"],
             "closure_probability": round(row["closure_probability"], 3),
             "resource_plan": resource_plan(row),
-            "traffic_forecast": traffic_forecast(row),
+            "traffic_forecast": forecast,
             "response_priority": priority,
             "eta_target": eta_target(priority),
             "diversion_strategy": strategy,
@@ -95,6 +104,7 @@ class IncidentPredictor:
                 "is_peak_hour": row["is_peak_hour"],
             },
             "model_status": self.model_status,
+            "learning_insight": learning_insight,
         }
 
     def options(self) -> dict[str, list[str]]:
@@ -102,7 +112,7 @@ class IncidentPredictor:
         assert self.location_resolver is not None
         return self.location_resolver.options
 
-    def _build_feature_row(self, incident: IncidentRequest) -> dict[str, Any]:
+    def build_feature_row(self, incident: IncidentRequest) -> dict[str, Any]:
         if self.location_resolver is None:
             raise RuntimeError("Location resolver has not been loaded.")
 
