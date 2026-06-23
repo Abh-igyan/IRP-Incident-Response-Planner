@@ -1,5 +1,7 @@
 # Incident Response Planner
 
+<img width="1914" height="945" alt="image" src="https://github.com/user-attachments/assets/8fc66114-8a5b-4d15-af93-c6bff6f8db75" />
+
 Event-Driven Congestion (Planned and Unplanned) incident response system built with FastAPI, SQLite, CatBoost, NetworkX/OSMnx graph assets, and Leaflet.
 
 The system forecasts event-related traffic impact and recommends operational actions such as manpower deployment, barricading, response priority, ETA targets, and diversion planning for Bengaluru traffic operations.
