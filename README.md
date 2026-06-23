@@ -238,6 +238,7 @@ The original model remains the stable baseline. Feedback acts as an online calib
 - The dashboard includes export actions for JSON and CSV snapshots.
 - It also renders corridor, cause, vehicle, and hourly visuals so the page is not only a static statistics view.
 - The React analytics route now redirects to the static analytics dashboard so there is one source of truth for plots and heatmaps.
+- The heatmap page now colors markers by incident category instead of using only intensity/count shading.
 
 ### Heatmap
 

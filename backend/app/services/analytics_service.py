@@ -66,17 +66,40 @@ class AnalyticsService:
             "highest_risk_event_cause": cause_stats.index[0] if not cause_stats.empty else None,
         }
 
-    def get_heatmap_data(self, limit: int = 500) -> list[list[float]]:
+    def get_heatmap_data(self, limit: int = 500) -> list[dict[str, Any]]:
         if self.df.empty:
             return []
 
         sample = (
-            self.df[["latitude", "longitude", "requires_road_closure"]]
+            self.df[[
+                "latitude",
+                "longitude",
+                "event_type",
+                "event_cause",
+                "veh_type",
+                "requires_road_closure",
+            ]]
             .copy()
-            .assign(intensity=lambda frame: frame["requires_road_closure"].astype(float) * 0.8 + 0.2)
+            .assign(
+                intensity=lambda frame: frame["requires_road_closure"].astype(float) * 0.8 + 0.2,
+                incident_category=lambda frame: frame["event_cause"].where(
+                    frame["event_cause"].ne("unknown"),
+                    frame["event_type"],
+                ),
+            )
         )
-        sample = sample.sort_values(by="intensity", ascending=False).head(limit)
-        return sample[["latitude", "longitude", "intensity"]].values.tolist()
+        sample = sample.sort_values(by=["requires_road_closure", "intensity"], ascending=False).head(limit)
+        return sample[
+            [
+                "latitude",
+                "longitude",
+                "event_type",
+                "event_cause",
+                "veh_type",
+                "incident_category",
+                "intensity",
+            ]
+        ].to_dict(orient="records")
 
     def get_corridor_analytics(self) -> dict[str, Any]:
         incidents = self.df["corridor"].value_counts().head(10).to_dict()
