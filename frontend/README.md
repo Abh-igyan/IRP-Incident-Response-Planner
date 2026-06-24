@@ -1,16 +1,67 @@
-# React + Vite
+# Event Driven Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This directory contains the React-based frontend for the Incident Response Planner application. It is built with Vite and uses Material-UI for components and Leaflet for maps.
 
-Currently, two official plugins are available:
+## Project Structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Here is an overview of the project's file structure:
 
-## React Compiler
+```
+frontend/
+├── index.html
+├── package.json
+└── src/
+    ├── App.jsx
+    ├── index.css
+    ├── main.jsx
+    ├── components/
+    │   ├── Layout.jsx
+    │   └── Predict/
+    │       ├── DiversionPlan.jsx
+    │       ├── LocationPickerMap.jsx
+    │       ├── MetricBand.jsx
+    │       ├── PredictComponents.css
+    │       ├── ResourcePlan.jsx
+    │       ├── ResponsePlan.jsx
+    │       ├── RouteMap.jsx
+    │       └── TrafficForecast.jsx
+    ├── pages/
+    │   ├── AnalyticsPage.jsx
+    │   ├── HeatmapPage.jsx
+    │   ├── LandingPage.jsx
+    │   └── PredictPage.jsx
+    ├── services/
+    │   └── api.js
+    └── theme/
+        └── theme.js
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Key Components
 
-## Expanding the Oxlint configuration
+*   **`index.html`**: The main HTML entry point for the application.
+*   **`main.jsx`**: The main script entry point for the React application. It sets up the theme and routing.
+*   **`App.jsx`**: The root component that defines the overall page layout and URL routes.
+*   **`components/`**: Contains reusable React components.
+    *   `Layout.jsx`: The main application shell with the navigation drawer and app bar.
+    *   `Predict/`: Components specifically used on the prediction page for displaying results and maps.
+*   **`pages/`**: Contains the main page components for each route.
+    *   `PredictPage.jsx`: The core page for running incident predictions. It includes the input form, maps, and results display.
+    *   `HeatmapPage.jsx`: Displays a map of historical incident data.
+    *   `AnalyticsPage.jsx`: Redirects to the static analytics dashboard.
+    *   `LandingPage.jsx`: The application's home page.
+*   **`services/`**: Contains modules for communicating with the backend API.
+    *   `api.js`: Defines functions for making API calls using `axios`.
+*   **`theme/`**: Contains the Material-UI theme configuration.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Available Scripts
+
+In the project directory, you can run:
+
+### `npm run dev`
+
+Runs the app in the development mode.<br />
+Open http://localhost:5173 to view it in the browser.
+
+### `npm run build`
+
+Builds the app for production to the `dist` folder.
