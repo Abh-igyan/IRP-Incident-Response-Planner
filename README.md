@@ -1,6 +1,8 @@
 # Incident Response Planner
 
-<img width="1919" height="952" alt="image" src="https://github.com/user-attachments/assets/2a5fa1a6-172d-4285-acab-8060ba7434cd" />
+<img width="1904" height="939" alt="image" src="https://github.com/user-attachments/assets/ebdda87d-fee0-4aaf-af35-6c3eccdb3b53" />
+<img width="1678" height="725" alt="image" src="https://github.com/user-attachments/assets/ab0fc95e-6e58-46cd-8d11-44e854e3bc79" />
+
 
 Event-Driven Congestion (Planned and Unplanned) incident response system built with FastAPI, SQLite, CatBoost, NetworkX/OSMnx graph assets, and Leaflet.
 
